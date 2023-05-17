@@ -1,0 +1,10 @@
+services:
+  webapi:
+    build: ./WebApi/
+    ports:
+      - "5001:80"
+    depends_on:
+      - mongo
+  mongo:
+    image: mongo
+    
