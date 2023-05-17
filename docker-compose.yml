@@ -3,6 +3,9 @@ services:
     build: ./WebApi/
     ports:
       - "5001:80"
+    environment:
+      DatabaseSettings__ConnectionString:
+        "mongodb://root:example@mongo:27017/"
     depends_on:
       - mongo
   mongo:
