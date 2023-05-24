@@ -1,76 +1,47 @@
 using MongoDB.Driver;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-
-
+using Microsoft.AspNetCore.OpenApi;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
 var movieDatabaseConfigSection = builder.Configuration.GetSection("DatabaseSettings");
 builder.Services.Configure<DatabaseSettings>(movieDatabaseConfigSection);
+
+builder.Services.AddSingleton<MovieService>();
+
 var app = builder.Build();
 
-
+app.UseSwagger();
+app.UseSwaggerUI();
 
 app.MapGet("/", () => "Hello Worlds");
 
-app.MapGet("/check", async (Microsoft.Extensions.Options.IOptions<DatabaseSettings> options) =>
+app.MapGet("/check", (MovieService movieService) =>
 {
-    try
-    {
-        var connectionString = options.Value.ConnectionString;
-        var mongoClient = new MongoClient(connectionString);
-        var databaseNames = await mongoClient.ListDatabaseNames().ToListAsync();
-        var response = new { Databases = databaseNames };
-        return Results.Ok(response);
-    }
-    catch (Exception ex)
-    {
-        return Results.StatusCode(StatusCodes.Status500InternalServerError);
-    }
+    return movieService.Check();
 });
 
-// Insert Movie
-// Wenn das übergebene Objekt eingefügt werden konnte,
-// wird es mit Statuscode 200 zurückgegeben.
-// Bei Fehler wird Statuscode 409 Conflict zurückgegeben.
-app.MapPost("/api/movies", (Movie movie) =>
+app.MapPost("/api/movies", (Movie movie, MovieService movieService) =>
 {
-        var myMovie = new Movie()
-        {
-            Id = "1",
-            Title = "Asterix und Obelix",
-        };
-        return Results.Ok(myMovie);
-});
-// Get all Movies
-// Gibt alle vorhandenen Movie-Objekte mit Statuscode 200 OK zurück.
-app.MapGet("api/movies", () =>
-{
-    throw new NotImplementedException();
+    movieService.Create(movie);
+    return Results.Ok(movie);
 });
 
-app.MapGet("api/movies/{id}", (string id) =>
+app.MapGet("/api/movies", (MovieService movieService) =>
 {
-    if (id == "1")
-    {
-        var myMovie = new Movie()
-        {
-            Id = "1",
-            Title = "Asterix und Obelix",
-        };
-        return Results.Ok(myMovie);
-    }
-    else
-    {
-        return Results.NotFound();
-    }
+    var movies = movieService.Get();
+    return Results.Ok(movies);
 });
-// Update Movie
-// Gibt das aktualisierte Movie-Objekt zurück.
-// Bei ungültiger id wird Statuscode 404 not found zurückgegeben.
-app.MapPut("/api/movies/{id}", (string id, Movie movie) =>
+
+app.MapGet("/api/movies/{id}", (string id, MovieService movieService) =>
 {
-    if (id == "1")
+    var movie = movieService.Get(id);
+
+    if (movie != null)
     {
         return Results.Ok(movie);
     }
@@ -79,20 +50,19 @@ app.MapPut("/api/movies/{id}", (string id, Movie movie) =>
         return Results.NotFound();
     }
 });
-// Delete Movie
-// Gibt bei erfolgreicher Löschung Statuscode 200 OK zurück.
-// Bei ungültiger id wird Statuscode 404 not found zurückgegeben.
-app.MapDelete("api/movies/{id}", (string id) =>
+
+app.MapPut("/api/movies/{id}", (string id, Movie movie, MovieService movieService) =>
 {
-    if (id == "1")
-    {
-        return Results.Ok();
-    }
-    else
-    {
-        return Results.NotFound();
-    }
+    movieService.Update(id, movie);
+    return Results.Ok(movie);
 });
+
+app.MapDelete("/api/movies/{id}", (string id, MovieService movieService) =>
+{
+    movieService.Remove(id);
+    return Results.Ok();
+}).WithName("deleteMovie")
+.WithOpenApi();
 
 
 app.Run();
